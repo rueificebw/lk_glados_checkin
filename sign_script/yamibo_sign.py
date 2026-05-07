@@ -29,7 +29,11 @@ logger = logging.getLogger(__name__)
 # 常量配置
 BASE_URL = "https://bbs.yamibo.com"
 SIGN_URL_TEMPLATE = "{}/plugin.php?id=zqlj_sign&sign={}"
-FORMHASH_URL = "{}/home.php?mod=space&do=profile&mobile=2"
+FORMHASH_URLS = [
+    "{}/home.php?mod=space&do=profile&mobile=2",
+    "{}/home.php?mod=spacecp&ac=credit&mobile=2",
+    "{}/plugin.php?id=zqlj_sign&mobile=2",
+]
 
 # User-Agent
 UA = "Mozilla/5.0 (Linux; Android 11; SAMSUNG SM-G973U) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/14.2 Chrome/87.0.4280.141 Mobile Safari/537.36"
@@ -92,34 +96,37 @@ class YamiboSignIn:
 
     def _get_formhash(self) -> Tuple[bool, Optional[str]]:
         """
-        获取 formhash
+        获取 formhash，尝试多个 URL
         :return: (是否成功, formhash 值)
         """
-        url = FORMHASH_URL.format(BASE_URL)
-        logger.info(f"正在获取 formhash: {url}")
+        for url_template in FORMHASH_URLS:
+            url = url_template.format(BASE_URL)
+            logger.info(f"正在获取 formhash: {url}")
 
-        try:
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
+            try:
+                response = self.session.get(url, timeout=30)
+                response.raise_for_status()
 
-            # 检查是否已登录
-            if "登录" in response.text and "用户名" in response.text:
-                logger.error("Cookie 已失效，需要重新登录")
-                return False, None
+                # 检查是否已登录
+                if "登录" in response.text and "用户名" in response.text:
+                    logger.warning(f"{url} - Cookie 可能已失效或未登录")
+                    continue
 
-            formhash = self._extract_formhash(response.text)
-            if formhash:
-                return True, formhash
-            else:
-                logger.error("响应内容中未找到 formhash")
-                return False, None
+                formhash = self._extract_formhash(response.text)
+                if formhash:
+                    return True, formhash
+                else:
+                    logger.warning(f"{url} - 未找到 formhash，尝试下一个 URL")
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"获取 formhash 时发生网络错误: {e}")
-            return False, None
-        except Exception as e:
-            logger.error(f"获取 formhash 时发生未知错误: {e}")
-            return False, None
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"{url} - 网络错误: {e}")
+                continue
+            except Exception as e:
+                logger.warning(f"{url} - 错误: {e}")
+                continue
+
+        logger.error("所有 URL 都无法获取 formhash")
+        return False, None
 
     def _parse_sign_result(self, html: str) -> Tuple[bool, str]:
         """
@@ -247,9 +254,13 @@ def main():
             "timestamp": datetime.now().isoformat(),
         }
 
-        # 设置 GitHub Actions 输出
+        # 设置 GitHub Actions 输出（使用环境文件）
         if os.environ.get("GITHUB_ACTIONS") == "true":
-            print(f"::set-output name=result::{json.dumps(result)}")
+            # 使用 GITHUB_OUTPUT 环境文件
+            github_output = os.environ.get("GITHUB_OUTPUT")
+            if github_output:
+                with open(github_output, "a") as f:
+                    f.write(f"result={json.dumps(result)}\n")
             if success:
                 print(f"::notice::签到成功 - {message}")
             else:
