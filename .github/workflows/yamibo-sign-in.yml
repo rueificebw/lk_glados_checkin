@@ -1,0 +1,30 @@
+name: Yamibo Sign In
+
+on:
+  schedule:
+    # 北京时间每天 08:00 (UTC 00:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  yamibo-sign-in:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r sign_script/requirements.txt
+
+      - name: Run Yamibo sign in
+        env:
+          YAMIBO_COOKIE: ${{ secrets.YAMIBO_COOKIE }}
+        run: python sign_script/yamibo_sign.py
