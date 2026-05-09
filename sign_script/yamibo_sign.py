@@ -46,6 +46,9 @@ class YamiboSignIn:
         self.cookie = cookie
         self.session = requests.Session()
 
+        # 启用环境变量代理支持（HTTP_PROXY/HTTPS_PROXY）
+        self.session.trust_env = True
+
         # 配置重试策略
         retry_strategy = Retry(
             total=3,
