@@ -264,15 +264,103 @@ def parse_base64_subscription(content: str) -> List[Dict[str, Any]]:
 
 
 def parse_yaml_subscription(content: str) -> List[Dict[str, Any]]:
-    """解析 YAML 格式的订阅（Clash/Mihomo 配置）"""
+    """解析 YAML 格式的订阅（Clash/Mihomo 配置）使用 PyYAML"""
     proxies = []
     
     try:
-        # 简单解析，提取 proxies 部分
+        import yaml
+        
+        # 解析 YAML 内容
+        config = yaml.safe_load(content)
+        
+        if not isinstance(config, dict):
+            print("YAML 内容格式不正确")
+            return proxies
+        
+        # 提取 proxies 部分
+        yaml_proxies = config.get('proxies', [])
+        
+        if not yaml_proxies:
+            print("YAML 中没有找到 proxies 部分")
+            return proxies
+        
+        for proxy in yaml_proxies:
+            if not isinstance(proxy, dict):
+                continue
+            
+            # 提取必要的字段
+            node = {
+                'name': str(proxy.get('name', 'Unknown')),
+                'type': proxy.get('type', ''),
+                'server': proxy.get('server', ''),
+                'port': proxy.get('port', 0)
+            }
+            
+            # 根据节点类型提取额外字段
+            node_type = node['type'].lower()
+            
+            if node_type == 'ss':
+                node['cipher'] = proxy.get('cipher', 'none')
+                node['password'] = proxy.get('password', '')
+            elif node_type == 'vmess':
+                node['uuid'] = proxy.get('uuid', '')
+                node['alterId'] = proxy.get('alterId', 0)
+                node['cipher'] = proxy.get('cipher', 'auto')
+                node['tls'] = proxy.get('tls', False)
+                node['network'] = proxy.get('network', 'tcp')
+                if 'ws-opts' in proxy:
+                    node['ws-opts'] = proxy['ws-opts']
+            elif node_type == 'trojan':
+                node['password'] = proxy.get('password', '')
+                if 'sni' in proxy:
+                    node['sni'] = proxy['sni']
+            elif node_type == 'vless':
+                node['uuid'] = proxy.get('uuid', '')
+                node['tls'] = proxy.get('tls', False)
+                if 'servername' in proxy:
+                    node['servername'] = proxy['servername']
+                if 'network' in proxy:
+                    node['network'] = proxy['network']
+            elif node_type == 'ssr':
+                node['cipher'] = proxy.get('cipher', 'none')
+                node['password'] = proxy.get('password', '')
+                node['protocol'] = proxy.get('protocol', 'origin')
+                node['obfs'] = proxy.get('obfs', 'plain')
+            elif node_type == 'http':
+                node['username'] = proxy.get('username', '')
+                node['password'] = proxy.get('password', '')
+            elif node_type == 'socks5':
+                node['username'] = proxy.get('username', '')
+                node['password'] = proxy.get('password', '')
+            
+            # 保留原始配置中的所有其他字段
+            for key, value in proxy.items():
+                if key not in node:
+                    node[key] = value
+            
+            proxies.append(node)
+            print(f"  解析节点: {node['name']} ({node['type']})")
+    
+    except ImportError:
+        print("警告: 未安装 PyYAML，尝试使用简单解析")
+        return parse_yaml_subscription_simple(content)
+    except Exception as e:
+        print(f"解析 YAML 订阅失败: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return proxies
+
+
+def parse_yaml_subscription_simple(content: str) -> List[Dict[str, Any]]:
+    """简单解析 YAML 格式的订阅（备用方案）"""
+    proxies = []
+    
+    try:
         lines = content.split('\n')
         in_proxies = False
         current_proxy = {}
-        indent_level = 0
+        current_indent = 0
         
         for line in lines:
             stripped = line.strip()
@@ -280,49 +368,55 @@ def parse_yaml_subscription(content: str) -> List[Dict[str, Any]]:
             # 检测 proxies: 部分开始
             if stripped == 'proxies:':
                 in_proxies = True
+                current_indent = len(line) - len(line.lstrip())
                 continue
             
+            if not in_proxies:
+                continue
+            
+            # 检测行缩进
+            line_indent = len(line) - len(line.lstrip())
+            
             # 检测其他顶级部分，结束 proxies 解析
-            if in_proxies and stripped.endswith(':') and not line.startswith(' '):
-                if stripped in ['proxy-groups:', 'rules:', 'mode:', 'log-level:']:
+            if stripped.endswith(':') and line_indent <= current_indent:
+                if stripped in ['proxy-groups:', 'rules:', 'mode:', 'log-level:', 'dns:']:
                     break
             
-            if in_proxies:
-                # 检测新的代理节点（以 - 开头）
-                if stripped.startswith('- '):
-                    # 保存上一个节点
-                    if current_proxy and 'name' in current_proxy:
-                        proxies.append(current_proxy)
-                        print(f"  解析节点: {current_proxy.get('name', 'Unknown')} ({current_proxy.get('type', 'unknown')})")
-                    
-                    # 开始新节点
-                    current_proxy = {}
-                    # 解析第一个属性
-                    if ':' in stripped:
-                        key_val = stripped[2:].strip()  # 移除 '- '
-                        if ':' in key_val:
-                            key, val = key_val.split(':', 1)
-                            current_proxy[key.strip()] = val.strip().strip('"\'')
+            # 检测新的代理节点（以 - 开头，且缩进正确）
+            if stripped.startswith('- '):
+                # 保存上一个节点
+                if current_proxy and 'name' in current_proxy:
+                    proxies.append(current_proxy)
+                    print(f"  解析节点: {current_proxy.get('name', 'Unknown')} ({current_proxy.get('type', 'unknown')})")
                 
-                # 解析节点的其他属性
-                elif ':' in stripped and current_proxy is not None:
-                    key, val = stripped.split(':', 1)
-                    key = key.strip()
-                    val = val.strip().strip('"\'')
-                    
-                    # 处理嵌套属性（简单处理）
-                    if key in ['ws-opts', 'headers']:
-                        continue  # 跳过复杂嵌套
-                    
-                    # 转换类型
-                    if key in ['port', 'alterId']:
-                        try:
-                            val = int(val)
-                        except:
-                            pass
-                    elif key == 'tls':
-                        val = val.lower() == 'true'
-                    
+                # 开始新节点
+                current_proxy = {}
+                # 解析第一个属性
+                key_val = stripped[2:].strip()  # 移除 '- '
+                if ':' in key_val:
+                    key, val = key_val.split(':', 1)
+                    current_proxy[key.strip()] = val.strip().strip('"\'')
+            
+            # 解析节点的其他属性（必须是缩进的）
+            elif ':' in stripped and current_proxy is not None and line_indent > current_indent:
+                key, val = stripped.split(':', 1)
+                key = key.strip()
+                val = val.strip().strip('"\'')
+                
+                # 跳过嵌套对象（简单处理）
+                if not val and stripped.endswith(':'):
+                    continue
+                
+                # 转换类型
+                if key in ['port', 'alterId']:
+                    try:
+                        val = int(val)
+                    except:
+                        pass
+                elif key == 'tls':
+                    val = val.lower() == 'true'
+                
+                if val or key not in current_proxy:
                     current_proxy[key] = val
         
         # 保存最后一个节点
@@ -331,7 +425,7 @@ def parse_yaml_subscription(content: str) -> List[Dict[str, Any]]:
             print(f"  解析节点: {current_proxy.get('name', 'Unknown')} ({current_proxy.get('type', 'unknown')})")
     
     except Exception as e:
-        print(f"解析 YAML 订阅失败: {e}")
+        print(f"简单解析 YAML 订阅失败: {e}")
     
     return proxies
 
@@ -394,8 +488,91 @@ def generate_config(proxies: List[Dict[str, Any]], output_path: str = 'mihomo_co
     
     proxy_names = [p['name'] for p in proxies]
     
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("""# Mihomo 自动生成的配置文件
+    # 构建配置字典
+    config = {
+        'mixed-port': 7890,
+        'socks-port': 7891,
+        'redir-port': 0,
+        'allow-lan': False,
+        'mode': 'rule',
+        'log-level': 'info',
+        'external-controller': '127.0.0.1:9090',
+        'proxies': [],
+        'proxy-groups': [
+            {
+                'name': 'AutoSelect',
+                'type': 'url-test',
+                'url': 'http://www.gstatic.com/generate_204',
+                'interval': 300,
+                'tolerance': 50,
+                'proxies': proxy_names
+            },
+            {
+                'name': 'Manual',
+                'type': 'select',
+                'proxies': ['AutoSelect'] + proxy_names
+            }
+        ],
+        'rules': ['MATCH,Manual']
+    }
+    
+    # 清理节点数据，移除不必要的字段
+    cleaned_proxies = []
+    for p in proxies:
+        cleaned = {}
+        # 必须字段
+        for key in ['name', 'type', 'server', 'port']:
+            if key in p:
+                cleaned[key] = p[key]
+        
+        # 根据类型添加特定字段
+        node_type = p.get('type', '').lower()
+        
+        if node_type == 'ss':
+            for key in ['cipher', 'password']:
+                if key in p:
+                    cleaned[key] = p[key]
+        elif node_type == 'vmess':
+            for key in ['uuid', 'alterId', 'cipher', 'tls', 'network', 'ws-opts', 'ws-path', 'ws-headers', 'skip-cert-verify']:
+                if key in p:
+                    cleaned[key] = p[key]
+        elif node_type == 'trojan':
+            for key in ['password', 'sni', 'skip-cert-verify']:
+                if key in p:
+                    cleaned[key] = p[key]
+        elif node_type == 'vless':
+            for key in ['uuid', 'tls', 'servername', 'network', 'flow', 'client-fingerprint']:
+                if key in p:
+                    cleaned[key] = p[key]
+        elif node_type == 'ssr':
+            for key in ['cipher', 'password', 'protocol', 'obfs', 'protocol-param', 'obfs-param']:
+                if key in p:
+                    cleaned[key] = p[key]
+        elif node_type in ['http', 'socks5']:
+            for key in ['username', 'password']:
+                if key in p:
+                    cleaned[key] = p[key]
+        
+        # 保留其他可能重要的字段
+        for key, value in p.items():
+            if key not in cleaned and value is not None and value != '':
+                cleaned[key] = value
+        
+        cleaned_proxies.append(cleaned)
+    
+    config['proxies'] = cleaned_proxies
+    
+    try:
+        import yaml
+        # 使用 PyYAML 输出配置
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write("# Mihomo 自动生成的配置文件\n")
+            yaml.dump(config, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+    except ImportError:
+        # 如果没有 PyYAML，使用手动生成
+        print("警告: 未安装 PyYAML，使用手动生成配置")
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write("""# Mihomo 自动生成的配置文件
 mixed-port: 7890
 socks-port: 7891
 redir-port: 0
@@ -406,47 +583,32 @@ external-controller: 127.0.0.1:9090
 
 proxies:
 """)
-        
-        for p in proxies:
-            f.write(f"  - name: \"{p['name']}\"\n")
-            f.write(f"    type: {p['type']}\n")
-            f.write(f"    server: {p['server']}\n")
-            f.write(f"    port: {p['port']}\n")
+            for p in cleaned_proxies:
+                f.write(f"  - name: \"{p['name']}\"\n")
+                f.write(f"    type: {p['type']}\n")
+                f.write(f"    server: {p['server']}\n")
+                f.write(f"    port: {p['port']}\n")
+                
+                for key, value in p.items():
+                    if key not in ['name', 'type', 'server', 'port']:
+                        if isinstance(value, bool):
+                            f.write(f"    {key}: {str(value).lower()}\n")
+                        elif isinstance(value, (int, float)):
+                            f.write(f"    {key}: {value}\n")
+                        elif isinstance(value, dict):
+                            f.write(f"    {key}:\n")
+                            for k, v in value.items():
+                                if isinstance(v, dict):
+                                    f.write(f"      {k}:\n")
+                                    for kk, vv in v.items():
+                                        f.write(f"        {kk}: {vv}\n")
+                                else:
+                                    f.write(f"      {k}: {v}\n")
+                        else:
+                            f.write(f"    {key}: \"{value}\"\n")
+                f.write("\n")
             
-            if p['type'] == 'ss':
-                f.write(f"    cipher: {p['cipher']}\n")
-                f.write(f"    password: \"{p['password']}\"\n")
-            elif p['type'] == 'vmess':
-                f.write(f"    uuid: {p['uuid']}\n")
-                f.write(f"    alterId: {p['alterId']}\n")
-                f.write(f"    cipher: {p['cipher']}\n")
-                if p.get('tls'):
-                    f.write(f"    tls: true\n")
-                if p.get('network'):
-                    f.write(f"    network: {p['network']}\n")
-                if p.get('ws-opts'):
-                    f.write(f"    ws-opts:\n")
-                    f.write(f"      path: \"{p['ws-opts']['path']}\"\n")
-                    if p['ws-opts'].get('headers'):
-                        f.write(f"      headers:\n")
-                        for k, v in p['ws-opts']['headers'].items():
-                            f.write(f"        {k}: {v}\n")
-            elif p['type'] == 'trojan':
-                f.write(f"    password: \"{p['password']}\"\n")
-                if p.get('sni'):
-                    f.write(f"    sni: {p['sni']}\n")
-            elif p['type'] == 'vless':
-                f.write(f"    uuid: \"{p['uuid']}\"\n")
-                if p.get('tls'):
-                    f.write(f"    tls: true\n")
-                if p.get('servername'):
-                    f.write(f"    servername: {p['servername']}\n")
-                if p.get('network'):
-                    f.write(f"    network: {p['network']}\n")
-            
-            f.write("\n")
-        
-        f.write("""proxy-groups:
+            f.write("""proxy-groups:
   - name: AutoSelect
     type: url-test
     url: http://www.gstatic.com/generate_204
@@ -454,18 +616,18 @@ proxies:
     tolerance: 50
     proxies:
 """)
-        for name in proxy_names:
-            f.write(f"      - \"{name}\"\n")
-        
-        f.write("""  - name: Manual
+            for name in proxy_names:
+                f.write(f"      - \"{name}\"\n")
+            
+            f.write("""  - name: Manual
     type: select
     proxies:
       - AutoSelect
 """)
-        for name in proxy_names:
-            f.write(f"      - \"{name}\"\n")
-        
-        f.write("""
+            for name in proxy_names:
+                f.write(f"      - \"{name}\"\n")
+            
+            f.write("""
 rules:
   - MATCH,Manual
 """)
