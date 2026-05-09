@@ -9,7 +9,7 @@ on:
 jobs:
   yamibo-sign-in:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -23,8 +23,68 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r sign_script/requirements.txt
+          pip install pyyaml requests
 
+      # ========== Mihomo 代理设置 ==========
+      - name: Setup Mihomo Proxy
+        if: ${{ secrets.SUBSCRIBE_URL != '' }}
+        env:
+          SUBSCRIBE_URL: ${{ secrets.SUBSCRIBE_URL }}
+        run: |
+          echo "=== 下载 Mihomo 内核 ==="
+          # 获取最新版本号
+          MIHOMO_VERSION=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Mihomo 版本: $MIHOMO_VERSION"
+          
+          # 下载 Mihomo
+          curl -L -o mihomo.gz "https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_VERSION}/mihomo-linux-amd64-${MIHOMO_VERSION}.gz"
+          gunzip mihomo.gz
+          chmod +x mihomo
+          
+          echo "=== 生成 Mihomo 配置 ==="
+          python sign_script/setup_mihomo.py
+          
+          echo "=== 启动 Mihomo ==="
+          ./mihomo -f mihomo_config.yaml &
+          
+          echo "等待 Mihomo 启动并测试连接..."
+          sleep 10
+          
+          # 测试代理是否可用
+          echo "测试代理连接..."
+          curl -x http://127.0.0.1:7890 -s --max-time 10 http://www.google.com/generate_204 || echo "代理测试完成"
+
+      # ========== 运行签到脚本 ==========
       - name: Run Yamibo sign in
         env:
           YAMIBO_COOKIE: ${{ secrets.YAMIBO_COOKIE }}
-        run: python sign_script/yamibo_sign.py
+          # 如果有订阅链接，使用代理
+          HTTP_PROXY: ${{ secrets.SUBSCRIBE_URL != '' && 'http://127.0.0.1:7890' || '' }}
+          HTTPS_PROXY: ${{ secrets.SUBSCRIBE_URL != '' && 'http://127.0.0.1:7890' || '' }}
+          ALL_PROXY: ${{ secrets.SUBSCRIBE_URL != '' && 'socks5://127.0.0.1:7891' || '' }}
+          # 可选：直接指定代理 URL（优先级高于订阅）
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+        run: |
+          # 如果设置了直接代理，覆盖环境变量
+          if [ -n "$PROXY_URL" ]; then
+            export HTTP_PROXY="$PROXY_URL"
+            export HTTPS_PROXY="$PROXY_URL"
+          fi
+          
+          # 显示当前代理设置（隐藏敏感信息）
+          if [ -n "$HTTP_PROXY" ]; then
+            echo "使用代理: ${HTTP_PROXY//:*@/:***@}"
+          else
+            echo "不使用代理"
+          fi
+          
+          python sign_script/yamibo_sign.py
+
+      # ========== 清理 ==========
+      - name: Cleanup
+        if: always()
+        run: |
+          # 停止 Mihomo
+          pkill -f mihomo || true
+          # 删除配置文件（包含敏感信息）
+          rm -f mihomo_config.yaml || true
