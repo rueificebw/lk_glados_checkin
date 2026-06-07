@@ -4,6 +4,7 @@
 Archive Bot 自动签到脚本
 
 支持 EH-ArBot 和 Archive-at-Home 两种协议，支持多账号配置。
+配置通过 config.yaml 读取，与 LK / GLaDOS 签到脚本保持一致的风格。
 """
 
 import logging
@@ -142,9 +143,11 @@ def check_in_archive_at_home(api_address: str, api_key: str) -> bool:
         )
         if resp.status_code == 200:
             data = resp.json()
-            reward = data.get("reward") or "?"
-            balance = data.get("balance") or "?"
-            log.info(f"[Archive-at-Home] Check-in success! Got {reward} GP, current {balance} GP")
+            reward = data.get("reward")
+            balance = data.get("balance")
+            reward_str = str(reward) if reward is not None else "?"
+            balance_str = str(balance) if balance is not None else "?"
+            log.info(f"[Archive-at-Home] Check-in success! Got {reward_str} GP, current {balance_str} GP")
             return True
         elif resp.status_code == 409:
             log.warning(f"[Archive-at-Home] Already checked in today.")
@@ -163,8 +166,8 @@ def process_account(account_config: dict, index: int) -> bool:
     api_key = (account_config.get("api_key") or account_config.get("apikey") or "").strip()
 
     if not api_key:
-        log.warning(f"Account {index + 1} missing api_key, skipping.")
-        return False
+        log.info(f"Account {index + 1} missing api_key, skipping.")
+        return True
 
     if not api_address:
         api_address = DEFAULT_ADDRESSES.get(bot_type, DEFAULT_ADDRESSES["ehArBot"])
