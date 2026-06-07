@@ -4,6 +4,7 @@
 Archive Bot 自动签到脚本
 
 支持 EH-ArBot 和 Archive-at-Home 两种协议，支持多账号配置。
+配置通过 config.yaml 读取，与 LK / GLaDOS 签到脚本保持一致的风格。
 """
 
 import logging
@@ -145,6 +146,10 @@ def check_in_archive_at_home(api_address: str, api_key: str) -> CheckInResult:
         log.info(f"[Archive-at-Home] checkin status={resp.status_code}, body={resp.text}")
         if resp.status_code == 200:
             data = resp.json()
+            code = data.get("code")
+            # Archive-at-Home 已签到时返回 code=7
+            if code == 7:
+                return CheckInResult(success=True, already_checked_in=True)
             return CheckInResult(
                 success=True,
                 reward=data.get("reward"),
@@ -207,13 +212,14 @@ def process_account(account_config: dict, index: int) -> bool:
         return False
 
     if result.already_checked_in:
-        log.info("  ②今日已签到")
+        log.info("  今日已签到")
     else:
         reward_str = str(result.reward) if result.reward is not None else "?"
-        log.info(f"  ①签到成功：获得{reward_str}{unit}")
+        log.info(f"  签到成功：获得{reward_str}{unit}")
 
     # 打印当前余额（优先使用签到返回的余额，否则使用查询余额的结果）
-    final_balance = result.balance if result.balance is not None else balance
+    # 注意：已签到时 result.balance 可能为 0，此时应使用查询到的 balance
+    final_balance = result.balance if (result.balance is not None and result.balance > 0) else balance
     balance_str = str(final_balance) if final_balance is not None else "?"
     log.info(f"当前余额：{balance_str}{unit}")
 
