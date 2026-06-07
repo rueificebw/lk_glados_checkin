@@ -1,0 +1,50 @@
+name: Archive Bot 签到
+
+on:
+  schedule:
+    # 每天北京时间 9:00 执行 (UTC 01:00)
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  archive-bot-checkin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Create config
+        run: |
+          cat > config.yaml << 'EOF'
+          archive_bot:
+            - bot_type: "${{ secrets.ARCHIVE_BOT_TYPE }}"
+              api_address: "${{ secrets.ARCHIVE_BOT_API_ADDRESS }}"
+              api_key: "${{ secrets.ARCHIVE_BOT_API_KEY }}"
+            - bot_type: "${{ secrets.ARCHIVE_BOT_TYPE_1 }}"
+              api_address: "${{ secrets.ARCHIVE_BOT_API_ADDRESS_1 }}"
+              api_key: "${{ secrets.ARCHIVE_BOT_API_KEY_1 }}"
+            - bot_type: "${{ secrets.ARCHIVE_BOT_TYPE_2 }}"
+              api_address: "${{ secrets.ARCHIVE_BOT_API_ADDRESS_2 }}"
+              api_key: "${{ secrets.ARCHIVE_BOT_API_KEY_2 }}"
+            - bot_type: "${{ secrets.ARCHIVE_BOT_TYPE_3 }}"
+              api_address: "${{ secrets.ARCHIVE_BOT_API_ADDRESS_3 }}"
+              api_key: "${{ secrets.ARCHIVE_BOT_API_KEY_3 }}"
+            - bot_type: "${{ secrets.ARCHIVE_BOT_TYPE_4 }}"
+              api_address: "${{ secrets.ARCHIVE_BOT_API_ADDRESS_4 }}"
+              api_key: "${{ secrets.ARCHIVE_BOT_API_KEY_4 }}"
+            - bot_type: "${{ secrets.ARCHIVE_BOT_TYPE_5 }}"
+              api_address: "${{ secrets.ARCHIVE_BOT_API_ADDRESS_5 }}"
+              api_key: "${{ secrets.ARCHIVE_BOT_API_KEY_5 }}"
+          EOF
+
+      - name: Run Archive Bot checkin
+        run: python archive_bot_checkin.py
