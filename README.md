@@ -1,6 +1,7 @@
-# LK & GLaDOS & Archive Bot 自动签到
+# LK & GLaDOS & Archive Bot & ESJ 自动签到
 
-基于 [https://github.com/iszhangyt/lk-checkin](https://github.com/iszhangyt/lk-checkin) 开发的 GitHub Actions 自动签到工具，支持轻之国度（LK）、GLaDOS、Archive Bot 每日自动签到。
+基于 [https://github.com/iszhangyt/lk-checkin](https://github.com/iszhangyt/lk-checkin) 开发的 GitHub Actions 自动签到工具，支持轻之国度（LK）、GLaDOS 每日自动签到。
+
 
 ## 功能特性
 
@@ -15,6 +16,10 @@
   - 支持 EH-ArBot 和 Archive-at-Home 两种协议
   - 自动每日签到获取 GP
   - 支持多账号配置
+
+- **ESJ论坛水经验**
+  - 自动登录 ESJ 论坛
+  - 每日自动发表评论水经验
 
 ### Archive Bot（归档机器人）
 
@@ -52,28 +57,28 @@
 
 #### Archive Bot 签到配置
 
-支持最多 6 个账号，账号 0 使用基础 Secret，账号 1~5 使用带 `_1` ~ `_5` 后缀的 Secret：
+| 类型 Secret | 说明 | API 地址 Secret | 说明 | API Key Secret | 说明 |
+|-------------|------|-----------------|------|----------------|------|
+| `ARCHIVE_BOT_TYPE` | 默认账号协议类型：`ehArBot` 或 `archiveAtHome`（默认 `ehArBot`） | `ARCHIVE_BOT_API_ADDRESS` | 默认账号 API 服务器地址（可选） | `ARCHIVE_BOT_API_KEY` | 默认账号 API Key |
+| `ARCHIVE_BOT_TYPE_1` | 账号1 协议类型 | `ARCHIVE_BOT_API_ADDRESS_1` | 账号1 API 服务器地址 | `ARCHIVE_BOT_API_KEY_1` | 账号1 API Key |
+| `ARCHIVE_BOT_TYPE_2` | 账号2 协议类型 | `ARCHIVE_BOT_API_ADDRESS_2` | 账号2 API 服务器地址 | `ARCHIVE_BOT_API_KEY_2` | 账号2 API Key |
+| `ARCHIVE_BOT_TYPE_3` | 账号3 协议类型 | `ARCHIVE_BOT_API_ADDRESS_3` | 账号3 API 服务器地址 | `ARCHIVE_BOT_API_KEY_3` | 账号3 API Key |
+| `ARCHIVE_BOT_TYPE_4` | 账号4 协议类型 | `ARCHIVE_BOT_API_ADDRESS_4` | 账号4 API 服务器地址 | `ARCHIVE_BOT_API_KEY_4` | 账号4 API Key |
+| `ARCHIVE_BOT_TYPE_5` | 账号5 协议类型 | `ARCHIVE_BOT_API_ADDRESS_5` | 账号5 API 服务器地址 | `ARCHIVE_BOT_API_KEY_5` | 账号5 API Key |
 
-| Secret 名称 | 说明 | 账号 |
-|-------------|------|------|
-| `ARCHIVE_BOT_TYPE` | 协议类型：`ehArBot` 或 `archiveAtHome`（默认 `ehArBot`） | 默认账号 |
-| `ARCHIVE_BOT_API_ADDRESS` | API 服务器地址（可选，留空使用默认地址） | 默认账号 |
-| `ARCHIVE_BOT_API_KEY` | API Key | 默认账号 |
-| `ARCHIVE_BOT_TYPE_1` | 协议类型 | 账号1 |
-| `ARCHIVE_BOT_API_ADDRESS_1` | API 服务器地址 | 账号1 |
-| `ARCHIVE_BOT_API_KEY_1` | API Key | 账号1 |
-| `ARCHIVE_BOT_TYPE_2` | 协议类型 | 账号2 |
-| `ARCHIVE_BOT_API_ADDRESS_2` | API 服务器地址 | 账号2 |
-| `ARCHIVE_BOT_API_KEY_2` | API Key | 账号2 |
-| ... | ... | ... |
-| `ARCHIVE_BOT_TYPE_5` | 协议类型 | 账号5 |
-| `ARCHIVE_BOT_API_ADDRESS_5` | API 服务器地址 | 账号5 |
-| `ARCHIVE_BOT_API_KEY_5` | API Key | 账号5 |
+> 支持最多 6 个账号，账号 0 使用基础 Secret，账号 1~5 使用带 `_1` ~ `_5` 后缀的 Secret。
+
+#### ESJ 论坛水经验配置
+
+| Secret 名称 | 说明 |
+|-------------|------|
+| `ESJ_USERNAME` | ESJ 论坛账号邮箱 |
+| `ESJ_PASSWORD` | ESJ 论坛密码 |
 
 ### 3. 手动触发测试
 
 配置完成后，可以手动触发工作流测试：
 
 1. 进入仓库的 **Actions** 页面
-2. 选择 **LK 签到**、**GLaDOS 签到** 或 **Archive Bot 签到**
+2. 选择 **LK 签到**、**GLaDOS 签到**、**Archive Bot 签到** 或 **ESJ 论坛水经验**
 3. 点击 **Run workflow** 按钮
