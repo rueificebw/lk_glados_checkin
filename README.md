@@ -21,15 +21,6 @@
   - 自动登录 ESJ 论坛
   - 每日自动发表评论水经验
 
-### Archive Bot（归档机器人）
-
-| 项目 | 链接 |
-|------|------|
-| ehArBot | [https://t.me/a_eh_arbot](https://t.me/a_eh_arbot) |
-| ntrehbot | [https://t.me/NTR_EH](https://t.me/NTR_EH) |
-| archiveAtHome | [https://t.me/ArchiveAtHome](https://t.me/ArchiveAtHome) |
-| 项目地址 | [https://github.com/Archive-At-Home/archive-at-home](https://github.com/Archive-At-Home/archive-at-home) |
-| 支持的第三方 | [https://github.com/jiangtian616/JHenTai](https://github.com/jiangtian616/JHenTai) |
 
 ## 使用方法
 
