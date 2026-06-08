@@ -150,10 +150,11 @@ def check_in_archive_at_home(api_address: str, api_key: str) -> CheckInResult:
             # Archive-at-Home 已签到时返回 code=7
             if code == 7:
                 return CheckInResult(success=True, already_checked_in=True)
+            checkin_data = data.get("data", {})
             return CheckInResult(
                 success=True,
-                reward=data.get("reward"),
-                balance=data.get("balance"),
+                reward=checkin_data.get("reward"),
+                balance=checkin_data.get("balance"),
             )
         elif resp.status_code == 409:
             return CheckInResult(success=True, already_checked_in=True)
@@ -208,14 +209,14 @@ def process_account(account_config: dict, index: int) -> bool:
     # 打印签到结果
     log.info("签到结果：")
     if not result.success:
-        log.info(f"  签到失败：{result.message}")
+        log.info(f"签到失败：{result.message}")
         return False
 
     if result.already_checked_in:
-        log.info("  今日已签到")
+        log.info("今日已签到")
     else:
         reward_str = str(result.reward) if result.reward is not None else "?"
-        log.info(f"  签到成功：获得{reward_str}{unit}")
+        log.info(f"签到成功：获得{reward_str}{unit}")
 
     # 打印当前余额（优先使用签到返回的余额，否则使用查询余额的结果）
     # 注意：已签到时 result.balance 可能为 0，此时应使用查询到的 balance
