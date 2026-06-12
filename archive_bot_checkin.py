@@ -79,7 +79,12 @@ def query_balance_eh_ar_bot(api_address: str, api_key: str) -> Optional[int]:
         log.info(f"[EH-ArBot] balance response: {data}")
         if data.get("code") == 0:
             balance_data = data.get("data", {})
-            return balance_data.get("GP") or balance_data.get("gp")
+            return (
+                balance_data.get("current_GP")
+                or balance_data.get("current_gp")
+                or balance_data.get("GP")
+                or balance_data.get("gp")
+            )
     except Exception:
         pass
     return None
@@ -124,6 +129,13 @@ def query_balance_archive_at_home(api_address: str, api_key: str) -> Optional[in
         log.info(f"[Archive-at-Home] balance status={resp.status_code}, body={resp.text}")
         if resp.status_code == 200:
             data = resp.json()
+            if data.get("code") == 0:
+                balance_data = data.get("data", {})
+                return (
+                    balance_data.get("GP")
+                    or balance_data.get("gp")
+                    or balance_data.get("balance")
+                )
             return data.get("GP") or data.get("gp") or data.get("balance")
     except Exception:
         pass
